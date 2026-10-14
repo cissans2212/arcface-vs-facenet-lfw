@@ -1,0 +1,42 @@
+{
+    "model": "Facenet",
+    "framework": "DeepFace",
+    "embedding_dimension": 128,
+    "distance_metric": "cosine",
+    "distance_explanation": "Nilai cosine distance lebih kecil berarti citra wajah lebih mirip (angle lebih kecil).",
+    "threshold": 0.4188682601019904,
+    "accuracy": 0.56,
+    "precision": 0.5545,
+    "recall": 0.61,
+    "f1": 0.581,
+    "far": 0.49,
+    "frr": 0.39,
+    "auc": 0.6418,
+    "eer": 0.41,
+    "test_confusion_matrix": {
+        "TN": 51,
+        "FP": 49,
+        "FN": 39,
+        "TP": 61
+    },
+    "total_pairs": 1000,
+    "development_pairs": 800,
+    "test_pairs": 200,
+    "development_metrics": {
+        "threshold": 0.4189,
+        "accuracy": 0.655,
+        "balanced_accuracy": 0.655,
+        "precision": 0.6527,
+        "recall": 0.6625,
+        "f1": 0.6576,
+        "far": 0.3525,
+        "frr": 0.3375,
+        "confusion_matrix": {
+            "TN": 259,
+            "FP": 141,
+            "FN": 135,
+            "TP": 265
+        }
+    },
+    "elapsed_time_seconds": 27.53
+}

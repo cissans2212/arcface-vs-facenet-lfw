@@ -1,0 +1,41 @@
+{
+    "model": "ArcFace",
+    "framework": "DeepFace",
+    "distance_metric": "cosine",
+    "distance_explanation": "Nilai cosine distance lebih kecil berarti citra wajah lebih mirip (angle lebih kecil).",
+    "threshold": 0.026942433716656566,
+    "accuracy": 0.59,
+    "precision": 0.6731,
+    "recall": 0.35,
+    "f1": 0.4605,
+    "far": 0.17,
+    "frr": 0.65,
+    "auc": 0.6269,
+    "eer": 0.425,
+    "test_confusion_matrix": {
+        "TN": 83,
+        "FP": 17,
+        "FN": 65,
+        "TP": 35
+    },
+    "total_pairs": 1000,
+    "development_pairs": 800,
+    "test_pairs": 200,
+    "development_metrics": {
+        "threshold": 0.0269,
+        "accuracy": 0.575,
+        "balanced_accuracy": 0.575,
+        "precision": 0.6304,
+        "recall": 0.3625,
+        "f1": 0.4603,
+        "far": 0.2125,
+        "frr": 0.6375,
+        "confusion_matrix": {
+            "TN": 315,
+            "FP": 85,
+            "FN": 255,
+            "TP": 145
+        }
+    },
+    "elapsed_time_seconds": 4.88
+}

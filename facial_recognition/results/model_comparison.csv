@@ -1,0 +1,13 @@
+Metric,ArcFace,FaceNet
+Accuracy,59.00%,56.00%
+Precision,67.31%,55.45%
+Recall,35.00%,61.00%
+F1-score,0.4605,0.5810
+FAR,17.00%,49.00%
+FRR,65.00%,39.00%
+AUC,0.6269,0.6418
+EER,42.50%,41.00%
+Threshold,0.0269,0.4189
+Inference Time,4.88 s,27.53 s
+Embedding Dimension,512,128
+Distance Metric,Cosine,Cosine

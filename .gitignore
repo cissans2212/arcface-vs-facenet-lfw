@@ -1,0 +1,43 @@
+# Byte-compiled / cache / Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Virtual Environment & Secret Keys
+.env
+.env.*
+venv/
+.venv/
+env/
+*.pem
+*.key
+*.token
+
+# Datasets mentah & Arsip besar (GitHub limit 100MB)
+/dataset/
+*.zip
+*.tar
+*.gz
+*.rar
+*.7z
+
+# Model weights & Checkpoints berukuran besar
+*.h5
+*.pt
+*.pth
+*.onnx
+*.pkl
+
+# Media personal & File sementara
+temp_uploaded.jpg
+WhatsApp*
+*.tmp
+Thumbs.db
+.DS_Store
+
+# Temporary Office lock files
+~$*.docx
+~$*.xlsx
