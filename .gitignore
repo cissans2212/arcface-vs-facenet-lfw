@@ -18,11 +18,24 @@ env/
 
 # Datasets mentah & Arsip besar (GitHub limit 100MB)
 /dataset/
+dataset/
+**/dataset/**
+!facial_recognition/dataset/
+!facial_recognition/dataset/processed/
+!facial_recognition/dataset/processed/*.csv
+/dataset/kelas/
+**/dataset/kelas/**
+**/kelas_extracted/**
+**/experiments/kelas/**
 *.zip
 *.tar
 *.gz
 *.rar
 *.7z
+*.heic
+*.heif
+*.HEIC
+*.HEIF
 
 # Model weights & Checkpoints berukuran besar
 *.h5
@@ -30,6 +43,7 @@ env/
 *.pth
 *.onnx
 *.pkl
+*.npy
 
 # Media personal & File sementara
 temp_uploaded.jpg

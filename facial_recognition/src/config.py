@@ -20,6 +20,9 @@ DATABASE_DIR = DATASET_DIR / "database"
 TRAIN_DIR = DATASET_DIR / "train"
 TEST_DIR = DATASET_DIR / "test"
 
+# Subdirektori dataset kelas (data foto mahasiswa mandiri)
+KELAS_DIR = DATASET_DIR / "kelas"
+
 # Direktori internal project facial_recognition
 SRC_DIR = PROJECT_DIR / "src"
 EXPERIMENTS_DIR = PROJECT_DIR / "experiments"
@@ -35,6 +38,7 @@ def get_dataset_status():
         "database_exists": DATABASE_DIR.exists(),
         "train_exists": TRAIN_DIR.exists(),
         "test_exists": TEST_DIR.exists(),
+        "kelas_exists": KELAS_DIR.exists(),
     }
 
 if __name__ == "__main__":

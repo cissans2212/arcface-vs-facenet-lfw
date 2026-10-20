@@ -2,13 +2,14 @@
 Streamlit GUI Application: Face Verification — ArcFace vs FaceNet
 Membandingkan dua citra wajah untuk menentukan apakah orang yang sama atau berbeda.
 Framework: DeepFace (ArcFace & FaceNet)
+Fitur Ekstensi: Eksperimen Preprocessing Ketahanan (Robustness) Brightness & Contrast
 """
 
 import json
 import os
 import sys
 from pathlib import Path
-from PIL import Image
+from PIL import Image, ImageEnhance
 import numpy as np
 import pandas as pd
 import streamlit as st
@@ -28,7 +29,7 @@ if hasattr(sys.stderr, "reconfigure"):
 
 # Konfigurasi Halaman Streamlit
 st.set_page_config(
-    page_title="Face Verification — ArcFace vs FaceNet",
+    page_title="Face Verification — ArcFace vs FaceNet (Robustness Evaluator)",
     page_icon="👤",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -37,10 +38,29 @@ st.set_page_config(
 # Resolusi Path Direktori Project
 APP_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = APP_DIR.parent
+SRC_DIR = PROJECT_DIR / "src"
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
 DATASET_DIR = Path(os.getenv("DATASET_DIR", PROJECT_DIR.parent / "dataset")).resolve()
 RESULTS_DIR = PROJECT_DIR / "results"
 ARCFACE_EXP_DIR = PROJECT_DIR / "experiments" / "arcface"
 FACENET_EXP_DIR = PROJECT_DIR / "experiments" / "facenet"
+ROBUSTNESS_EXP_DIR = PROJECT_DIR / "experiments" / "robustness_brightness_contrast"
+ROBUSTNESS_RES_DIR = RESULTS_DIR / "robustness_brightness_contrast"
+
+try:
+    from preprocessing import SCENARIOS, preprocess_image
+except ImportError:
+    SCENARIOS = {
+        "baseline": {"name": "Skenario 1 — Baseline", "factor": 1.0, "type": "none"},
+        "brightness_low": {"name": "Skenario 2 — Brightness Rendah", "factor": 0.7, "type": "brightness"},
+        "brightness_high": {"name": "Skenario 3 — Brightness Tinggi", "factor": 1.3, "type": "brightness"},
+        "contrast_low": {"name": "Skenario 4 — Contrast Rendah", "factor": 0.7, "type": "contrast"},
+        "contrast_high": {"name": "Skenario 5 — Contrast Tinggi", "factor": 1.3, "type": "contrast"},
+    }
+    def preprocess_image(im, scen):
+        return im.copy()
 
 # Custom Styling CSS untuk Tampilan Bersih & Akademik
 st.markdown(
@@ -71,12 +91,15 @@ st.markdown(
         border-radius: 8px;
         margin-bottom: 1rem;
     }
-    .metric-badge {
-        font-size: 0.9rem;
+    .scenario-badge {
+        font-size: 0.85rem;
         font-weight: 600;
-        padding: 0.2rem 0.5rem;
-        border-radius: 4px;
+        padding: 0.25rem 0.6rem;
+        border-radius: 6px;
+        background-color: #EEF2F6;
+        color: #1E293B;
         display: inline-block;
+        border: 1px solid #CBD5E1;
     }
     .stButton>button {
         width: 100%;
@@ -101,10 +124,11 @@ st.markdown(
 
 @st.cache_data
 def load_experiment_metadata():
-    """Memuat threshold dan metrik hasil eksperimen sebelumnya secara dinamis."""
+    """Memuat threshold, metrik baseline, dan metrik robustness secara dinamis."""
     arcface_metrics = None
     facenet_metrics = None
     comparison_df = None
+    robustness_df = None
 
     arc_path = ARCFACE_EXP_DIR / "metrics.json"
     if arc_path.exists():
@@ -129,7 +153,16 @@ def load_experiment_metadata():
         except Exception:
             pass
 
-    # Ambil threshold hasil eksperimen Tahap 2 & 3
+    # Ambil tabel perbandingan 5 skenario robustness jika ada
+    robust_csv = RESULTS_DIR / "brightness_contrast_comparison.csv"
+    if not robust_csv.exists():
+        robust_csv = ROBUSTNESS_RES_DIR / "brightness_contrast_comparison.csv"
+    if robust_csv.exists():
+        try:
+            robustness_df = pd.read_csv(robust_csv)
+        except Exception:
+            pass
+
     arc_threshold = arcface_metrics.get("threshold", 0.0269) if arcface_metrics else 0.0269
     face_threshold = facenet_metrics.get("threshold", 0.4189) if facenet_metrics else 0.4189
 
@@ -137,6 +170,7 @@ def load_experiment_metadata():
         "arcface_metrics": arcface_metrics,
         "facenet_metrics": facenet_metrics,
         "comparison_df": comparison_df,
+        "robustness_df": robustness_df,
         "arc_threshold": float(arc_threshold),
         "face_threshold": float(face_threshold),
     }
@@ -158,7 +192,6 @@ def get_embedding(img_np: np.ndarray, model_name: str) -> np.ndarray:
     """Mengekstrak embedding wajah menggunakan DeepFace dengan detector backend skip."""
     from deepface import DeepFace
 
-    # DeepFace represent mengembalikan list of dicts
     reps = DeepFace.represent(
         img_path=img_np,
         model_name=model_name,
@@ -184,8 +217,8 @@ with st.sidebar:
     )
 
     st.markdown("---")
-    st.markdown("### 📊 Model Evaluation")
-    st.caption("Hasil evaluasi performa dari eksperimen LFW Test Set (Tahap 4):")
+    st.markdown("### 📊 Model Evaluation (Baseline)")
+    st.caption("Hasil evaluasi performa baseline pada LFW Test Set (Tahap 4):")
 
     if metadata["comparison_df"] is not None:
         st.dataframe(
@@ -195,6 +228,53 @@ with st.sidebar:
         )
     else:
         st.warning("File model_comparison.csv belum ditemukan.")
+
+    with st.expander("🔆 Robustness Analysis (Brightness & Contrast)"):
+        st.caption("Hasil evaluasi ketahanan 5 skenario:")
+        if metadata.get("robustness_df") is not None:
+            sub_cols = ["Scenario_Name", "Factor", "ArcFace_Accuracy", "FaceNet_Accuracy", "ArcFace_F1", "FaceNet_F1"]
+            avail_cols = [c for c in sub_cols if c in metadata["robustness_df"].columns]
+            st.dataframe(
+                metadata["robustness_df"][avail_cols],
+                use_container_width=True,
+                hide_index=True,
+            )
+        else:
+            st.info("Data robustness_comparison.csv sedang diproses atau belum dijalankan.")
+
+        robust_acc_chart = RESULTS_DIR / "brightness_contrast_accuracy.png"
+        if not robust_acc_chart.exists():
+            robust_acc_chart = ROBUSTNESS_RES_DIR / "accuracy_comparison.png"
+        if robust_acc_chart.exists():
+            st.image(str(robust_acc_chart), caption="Akurasi ArcFace vs FaceNet (5 Skenario)", use_container_width=True)
+
+        robust_err_chart = RESULTS_DIR / "brightness_contrast_error_rates.png"
+        if not robust_err_chart.exists():
+            robust_err_chart = ROBUSTNESS_RES_DIR / "error_rates_comparison.png"
+        if robust_err_chart.exists():
+            st.image(str(robust_err_chart), caption="Tingkat Kesalahan FAR vs FRR (5 Skenario)", use_container_width=True)
+
+    with st.expander("🎓 Evaluasi Dataset Kelas Mahasiswa (Baru)"):
+        st.caption("Hasil pengujian 200 pasangan dari 33 mahasiswa (5 Skenario):")
+        kelas_csv = RESULTS_DIR / "kelas" / "kelas_comparison.csv"
+        if kelas_csv.exists():
+            try:
+                kelas_df = pd.read_csv(kelas_csv)
+                st.dataframe(kelas_df, use_container_width=True, hide_index=True)
+            except Exception:
+                pass
+
+        kelas_acc_chart = RESULTS_DIR / "kelas" / "metrics_comparison.png"
+        if kelas_acc_chart.exists():
+            st.image(str(kelas_acc_chart), caption="Akurasi ArcFace vs FaceNet (Dataset Kelas)", use_container_width=True)
+
+        kelas_err_chart = RESULTS_DIR / "kelas" / "far_frr_comparison.png"
+        if kelas_err_chart.exists():
+            st.image(str(kelas_err_chart), caption="Tingkat Kesalahan FAR vs FRR (Dataset Kelas)", use_container_width=True)
+
+        kelas_roc_chart = RESULTS_DIR / "kelas" / "roc_comparison.png"
+        if kelas_roc_chart.exists():
+            st.image(str(kelas_roc_chart), caption="Kurva ROC (Dataset Kelas)", use_container_width=True)
 
     with st.expander("ℹ️ Model Information"):
         st.markdown(
@@ -215,10 +295,10 @@ with st.sidebar:
             """
         )
 
-    with st.expander("📈 Grafik Evaluasi"):
+    with st.expander("📈 Baseline Graphics"):
         roc_path = RESULTS_DIR / "roc_comparison.png"
         if roc_path.exists():
-            st.image(str(roc_path), caption="ROC Comparison (ArcFace vs FaceNet)", use_container_width=True)
+            st.image(str(roc_path), caption="ROC Comparison Baseline", use_container_width=True)
         cm_arc_path = RESULTS_DIR / "confusion_matrix_arcface.png"
         cm_face_path = RESULTS_DIR / "confusion_matrix_facenet.png"
         if cm_arc_path.exists() and cm_face_path.exists():
@@ -231,7 +311,7 @@ with st.sidebar:
 # ==========================================
 st.markdown('<div class="main-header">Face Verification — ArcFace vs FaceNet</div>', unsafe_allow_html=True)
 st.markdown(
-    '<div class="sub-header">Sistem verifikasi wajah 1:1 menggunakan model deep representation <b>ArcFace</b> dan <b>FaceNet</b> pada framework DeepFace.</div>',
+    '<div class="sub-header">Sistem verifikasi wajah 1:1 menggunakan <b>ArcFace</b> dan <b>FaceNet</b> dengan pengujian ketahanan (robustness) <b>Brightness</b> dan <b>Contrast</b>.</div>',
     unsafe_allow_html=True,
 )
 
@@ -301,14 +381,89 @@ with tab_sample:
         img2_obj = st.session_state["sample_img2"]
         label_info = st.session_state.get("sample_info", "")
 
+
+# ==========================================
+# PENGATURAN PREPROCESSING (BRIGHTNESS & CONTRAST)
+# ==========================================
+st.markdown("### 🎛️ Pengaturan Skenario Preprocessing (Robustness Test)")
+
+col_sc1, col_sc2 = st.columns([2, 1])
+with col_sc1:
+    scenario_display_options = {
+        "Skenario 1 — Baseline (Citra Asli, Faktor 1.0)": "baseline",
+        "Skenario 2 — Brightness Rendah (Faktor 0.7)": "brightness_low",
+        "Skenario 3 — Brightness Tinggi (Faktor 1.3)": "brightness_high",
+        "Skenario 4 — Contrast Rendah (Faktor 0.7)": "contrast_low",
+        "Skenario 5 — Contrast Tinggi (Faktor 1.3)": "contrast_high",
+        "Kustom — Slider Manual": "custom",
+    }
+    chosen_label = st.selectbox(
+        "Pilih Skenario Pengujian:",
+        options=list(scenario_display_options.keys()),
+        index=0,
+        help="Pilih skenario simulasi pencahayaan atau kontras untuk menguji ketahanan verifikasi wajah.",
+    )
+    selected_scen_key = scenario_display_options[chosen_label]
+
+with col_sc2:
+    apply_target = st.selectbox(
+        "Terapkan Efek ke:",
+        options=["Keduanya (Image 1 & Image 2)", "Image 2 saja (Query/Uji)", "Image 1 saja (Referensi)"],
+        index=0,
+        help="Tentukan apakah efek diterapkan pada kedua citra atau salah satunya.",
+    )
+
+custom_b = 1.0
+custom_c = 1.0
+if selected_scen_key == "custom":
+    col_cu1, col_cu2 = st.columns(2)
+    with col_cu1:
+        custom_b = st.slider("Faktor Kecerahan (Brightness):", min_value=0.2, max_value=2.0, value=1.0, step=0.1)
+    with col_cu2:
+        custom_c = st.slider("Faktor Kontras (Contrast):", min_value=0.2, max_value=2.0, value=1.0, step=0.1)
+
+
+def transform_image_ui(img, scen_key, b_factor, c_factor):
+    """Menerapkan transformasi pada citra PIL untuk antarmuka GUI."""
+    if img is None:
+        return None
+    if scen_key == "baseline":
+        return img.copy()
+    elif scen_key == "custom":
+        res = img.copy()
+        if b_factor != 1.0:
+            res = ImageEnhance.Brightness(res).enhance(b_factor)
+        if c_factor != 1.0:
+            res = ImageEnhance.Contrast(res).enhance(c_factor)
+        return res
+    else:
+        return preprocess_image(img, scen_key)
+
+
+proc_img1 = img1_obj.copy() if img1_obj else None
+proc_img2 = img2_obj.copy() if img2_obj else None
+
+if selected_scen_key != "baseline":
+    if apply_target in ["Keduanya (Image 1 & Image 2)", "Image 1 saja (Referensi)"] and img1_obj:
+        proc_img1 = transform_image_ui(img1_obj, selected_scen_key, custom_b, custom_c)
+    if apply_target in ["Keduanya (Image 1 & Image 2)", "Image 2 saja (Query/Uji)"] and img2_obj:
+        proc_img2 = transform_image_ui(img2_obj, selected_scen_key, custom_b, custom_c)
+
+
 # Tampilkan preview kedua gambar jika tersedia
 st.markdown("### Preview Pasangan Gambar")
-if img1_obj and img2_obj:
+if proc_img1 and proc_img2:
     col_img1, col_img2 = st.columns(2)
     with col_img1:
-        st.image(img1_obj, caption="Image 1 (Ref)", use_container_width=True)
+        cap1 = "Image 1 (Ref)"
+        if selected_scen_key != "baseline" and apply_target in ["Keduanya (Image 1 & Image 2)", "Image 1 saja (Referensi)"]:
+            cap1 += f" — [{chosen_label.split('(')[0].strip()}]"
+        st.image(proc_img1, caption=cap1, use_container_width=True)
     with col_img2:
-        st.image(img2_obj, caption="Image 2 (Query)", use_container_width=True)
+        cap2 = "Image 2 (Query)"
+        if selected_scen_key != "baseline" and apply_target in ["Keduanya (Image 1 & Image 2)", "Image 2 saja (Query/Uji)"]:
+            cap2 += f" — [{chosen_label.split('(')[0].strip()}]"
+        st.image(proc_img2, caption=cap2, use_container_width=True)
 else:
     col_e1, col_e2 = st.columns(2)
     with col_e1:
@@ -324,12 +479,12 @@ btn_verify = st.button("🔍 VERIFY FACE", key="btn_verify_main")
 # PROSES VERIFIKASI & OUTPUT
 # ==========================================
 if btn_verify:
-    if img1_obj is None or img2_obj is None:
+    if proc_img1 is None or proc_img2 is None:
         st.error("⚠️ Error: Harap upload kedua gambar terlebih dahulu sebelum melakukan verifikasi!")
     else:
         with st.spinner("Sedang memproses representasi embedding dan menghitung jarak kemiripan..."):
-            np1 = np.array(img1_obj)
-            np2 = np.array(img2_obj)
+            np1 = np.array(proc_img1)
+            np2 = np.array(proc_img2)
 
             try:
                 results_data = {}
@@ -364,8 +519,11 @@ if btn_verify:
 
                 st.markdown("---")
                 st.markdown("### 📋 Hasil Verifikasi")
+                st.markdown(
+                    f'<span class="scenario-badge">Skenario Aktif: <b>{chosen_label}</b> | Target: <b>{apply_target}</b></span>',
+                    unsafe_allow_html=True,
+                )
 
-                # Penjelasan Cosine Distance
                 st.info(
                     "💡 **Prinsip Cosine Distance**: Nilai yang **lebih kecil** menandakan vektor wajah **lebih mirip**.<br>"
                     "• Jika <b>Cosine Distance ≤ Threshold</b> ➔ <b>SAME PERSON</b> (Orang yang Sama)<br>"
@@ -374,7 +532,6 @@ if btn_verify:
                 )
 
                 if model_choice == "Compare Both":
-                    # Tampilkan Tabel Perbandingan
                     table_rows = [
                         {
                             "Parameter / Metric": "Cosine Distance",
@@ -382,7 +539,7 @@ if btn_verify:
                             "FaceNet": f"{results_data['FaceNet']['distance']:.4f}",
                         },
                         {
-                            "Parameter / Metric": "Threshold Optimal",
+                            "Parameter / Metric": "Threshold Beku",
                             "ArcFace": f"{results_data['ArcFace']['threshold']:.4f}",
                             "FaceNet": f"{results_data['FaceNet']['threshold']:.4f}",
                         },
@@ -400,7 +557,6 @@ if btn_verify:
                     df_res = pd.DataFrame(table_rows)
                     st.table(df_res)
 
-                    # Kartu Kesimpulan untuk Masing-masing Model
                     col_r1, col_r2 = st.columns(2)
                     with col_r1:
                         p_arc = results_data["ArcFace"]["prediction"]
@@ -432,13 +588,11 @@ if btn_verify:
                             unsafe_allow_html=True,
                         )
 
-                    # Kesimpulan Akhir
                     st.markdown("#### Kesimpulan:")
                     st.write(f"- **ArcFace**: `{p_arc}`")
                     st.write(f"- **FaceNet**: `{p_face}`")
 
                 else:
-                    # Tampilan untuk Model Tunggal (ArcFace atau FaceNet)
                     res = results_data[model_choice]
                     p = res["prediction"]
                     card_class = "card-same" if p == "SAME PERSON" else "card-diff"

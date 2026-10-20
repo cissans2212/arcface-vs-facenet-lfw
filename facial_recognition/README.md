@@ -86,3 +86,41 @@ Aplikasi akan membuka browser secara otomatis di `http://localhost:8501`.
 - Klik **VERIFY FACE** untuk melihat hasil perbandingan distance, threshold, dan prediksi.
 - Sidebar memuat tabel metrik evaluasi lengkap dari `results/model_comparison.csv` serta grafik kurva ROC.
 
+## 9. Cara Menjalankan Eksperimen Robustness (Brightness & Contrast)
+Untuk mengevaluasi ketahanan kedua model terhadap variasi pencahayaan dan kontras:
+
+```bash
+# Menjalankan seluruh 5 skenario untuk ArcFace dan FaceNet
+python -X utf8 src/run_robustness_experiment.py --model all --batch-size 50
+```
+
+### 5 Skenario Pengujian:
+1. **Skenario 1 — Baseline**: Citra asli tanpa perubahan (faktor 1.0)
+2. **Skenario 2 — Brightness Rendah**: Kecerahan diturunkan (faktor 0.7)
+3. **Skenario 3 — Brightness Tinggi**: Kecerahan dinaikkan (faktor 1.3)
+4. **Skenario 4 — Contrast Rendah**: Kontras diturunkan (faktor 0.7)
+5. **Skenario 5 — Contrast Tinggi**: Kontras dinaikkan (faktor 1.3)
+
+Hasil disimpan secara terpisah di:
+- `results/brightness_contrast_comparison.csv` & `.json`
+- `results/brightness_contrast_accuracy.png` & `brightness_contrast_error_rates.png`
+- `results/robustness_report.md`
+
+## 10. Cara Menjalankan Eksperimen Dataset Kelas Mahasiswa (Real-World)
+Untuk mengevaluasi performa model pada data foto mahasiswa (33 identitas, 200 pasangan terverifikasi):
+
+```bash
+# 1. Ekstraksi dan cropping wajah RetinaFace (250x250)
+python src/prepare_kelas_dataset.py
+
+# 2. Menjalankan evaluasi 5 skenario (Domain Transfer & Tuned Threshold)
+python src/run_kelas_experiment.py
+```
+
+Hasil evaluasi disimpan terpisah di:
+- `results/kelas/kelas_comparison.csv` & `.json`
+- `results/kelas/laporan_hasil_kelas.md`
+- `results/kelas/roc_comparison.png`, `metrics_comparison.png`, & `far_frr_comparison.png`
+
+
+
